@@ -1,0 +1,26 @@
+<h2>All Exam Results</h2>
+
+{% if results %}
+<table border="1">
+  <tr>
+    {% for key in results[0].keys() %}
+      <th>{{ key }}</th>
+    {% endfor %}
+  </tr>
+  {% for row in results %}
+    <tr>
+      {% for val in row.values() %}
+        {% if loop.index0 == 4 %}  {# Assuming 5th column is face image #}
+          <td><img src="data:image/jpeg;base64,{{ val }}" width="100"></td>
+        {% else %}
+          <td>{{ val }}</td>
+        {% endif %}
+      {% endfor %}
+    </tr>
+  {% endfor %}
+</table>
+{% else %}
+  <p>No results yet.</p>
+{% endif %}
+
+<a href="/">Back to Home</a>

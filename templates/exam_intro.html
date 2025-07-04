@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Start Exam</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+<body class="bg-gray-100 flex justify-center items-center h-screen">
+  <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-lg text-center">
+    <h2 class="text-2xl font-bold mb-4">Welcome, {{ session.student_name }}</h2>
+    <p class="mb-4 text-gray-700">Before you begin, we will record your face to ensure exam integrity.</p>
+    <p class="mb-6 text-sm text-gray-500">Please make sure only your face is visible in the webcam frame.</p>
+
+
+<!-- Webcam preview -->
+    <div class="mb-6 flex justify-center">
+      <video id="video" width="320" height="240" autoplay class="rounded-lg border border-gray-300"></video>
+    </div>
+
+
+
+
+    <form id="startExamForm" method="POST" action="/start_exam">
+  <video id="video" width="320" height="240" autoplay></video>
+  <input type="hidden" name="face_image" id="face_image">
+  <button type="button" onclick="captureAndSubmit()" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded-xl shadow-md transition duration-200">Start Exam</button>
+</form>
+
+
+<!-- Back to home -->
+    <div class="mt-6">
+      <a href="/" class="text-sm text-blue-600 hover:underline">← Back to Home</a>
+    </div>
+  </div>
+
+
+<script>
+  const video = document.getElementById('video');
+
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(stream => {
+      video.srcObject = stream;
+    });
+
+  function captureAndSubmit() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 240;
+    canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+    const imageData = canvas.toDataURL('image/jpeg');
+    const base64 = imageData.split(',')[1];
+    document.getElementById('face_image').value = base64;
+    console.log("Submitting face image...");
+    document.getElementById('startExamForm').submit();
+  }
+</script>
+
+
+
+</body>
+</html>

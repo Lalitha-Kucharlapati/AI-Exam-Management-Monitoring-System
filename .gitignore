@@ -1,0 +1,4 @@
+# Ignore secret files
+.env
+config.py
+credentials.json
