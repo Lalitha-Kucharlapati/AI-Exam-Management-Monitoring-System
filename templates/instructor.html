@@ -10,7 +10,7 @@
   <div class="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-xl">
     <h2 class="text-3xl font-bold text-blue-700 mb-6 text-center">📘 Instructor Panel</h2>
 
-    <form action="/instructor" method="POST" class="space-y-5">
+    <form id="topic-form" action="/instructor" method="POST" class="space-y-5">
       <label for="topic" class="block text-lg font-medium text-gray-700">Enter Exam Topic</label>
       <input
         type="text"
@@ -29,6 +29,13 @@
       </button>
     </form>
 
+    <!-- 🔄 Loading Spinner -->
+    <div id="loading-spinner" class="flex flex-col items-center mt-4 hidden">
+  <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+  <p class="mt-2 text-sm text-gray-600">Generating questions, please wait...</p>
+</div>
+
+
     {% if link %}
     <div class="mt-6 p-4 bg-green-100 border border-green-300 rounded-lg text-green-800">
       ✅ Exam created! <br/>
@@ -40,5 +47,13 @@
       <a href="/" class="text-sm text-gray-600 hover:underline">← Back to Home</a>
     </div>
   </div>
+
+  <!-- 🧠 JS to Show Spinner on Submit -->
+  <script>
+  document.getElementById("topic-form").addEventListener("submit", function () {
+    document.getElementById("loading-spinner").classList.remove("hidden");
+  });
+</script>
+
 </body>
 </html>
