@@ -3,7 +3,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from flask import Flask, render_template, request, redirect, url_for, session
 from genai_utils import generate_mcqs, evaluate_subjective
-from gsheet_utils import save_result, get_all_results, create_question_sheet, get_latest_questions, delete_all_question_sheets
+from gsheet_utils import save_result, get_all_results, create_question_sheet, get_latest_questions, delete_all_question_sheets, has_already_submitted, record_termination, clear_exam_results_sheet
 import threading
 import invigilation_ai
 import audio_monitor
@@ -66,6 +66,14 @@ def instructor_signup():
     name = request.form["name"]
     email = request.form["email"]
     password = request.form["password"]
+    
+    # Check for duplicate
+    records = mentor_sheet.get_all_records()
+    for row in records:
+        if row["email"] == email:
+            return "<script>alert('Instructor email already exists.'); window.location.href='/instructor_login_page';</script>"
+
+    # If not duplicate, append
     mentor_sheet.append_row([name, email, password])
     return redirect("/")
 
@@ -76,19 +84,31 @@ def student_login():
     records = student_sheet.get_all_records()
     for row in records:
         if row["email"] == email and row["password"] == password:
+            session.clear()  # ✅ CLEAR session first to remove old keys
             session['student_name'] = row["name"]
             session['student_email'] = row["email"]
             session['student_password'] = password
+            session['terminated_recorded'] = False  # ✅ Reset the flag
             return redirect("/exam")
     return "<h3>Incorrect credentials. <a href='/'>Back to Home</a></h3>"
+
 
 @app.route("/student_signup", methods=["POST"])
 def student_signup():
     name = request.form["name"]
     email = request.form["email"]
     password = request.form["password"]
+    
+    # Check for duplicate
+    records = student_sheet.get_all_records()
+    for row in records:
+        if row["email"] == email:
+            return "<script>alert('Student email already exists.'); window.location.href='/student_login_page';</script>"
+
+    # If not duplicate, append
     student_sheet.append_row([name, email, password])
     return redirect("/")
+
 
 
 @app.route('/instructor', methods=['GET', 'POST'])
@@ -105,6 +125,7 @@ def instructor():
         questions = clean_lines
 
         # Create new Google Sheet and save questions
+        clear_exam_results_sheet(len(questions))
         sheet_url = create_question_sheet(topic, questions)
 
     return render_template('instructor.html', questions=questions, sheet_url=sheet_url)
@@ -119,13 +140,16 @@ def start_exam():
     if 'student_name' not in session or 'student_email' not in session:
         return redirect('/student_login_page')
 
-    parsed_questions = get_latest_questions()
-    if not parsed_questions:
-        return "No exam available. Instructor has not uploaded any questions."
-
     name = session['student_name']
     email = session['student_email']
 
+    if has_already_submitted(email):
+        return "<script>alert('You have already submitted the exam.'); window.location.href='/';</script>"
+    
+    parsed_questions = get_latest_questions()
+    if not parsed_questions:
+        return "No exam available. Instructor has not uploaded any questions."
+    
     if request.method == 'POST':
         face_b64 = request.form.get("face_image")
         print("DEBUG - face_b64 received:", face_b64[:50] if face_b64 else "None")
@@ -218,7 +242,42 @@ def exam_intro():
 
 @app.route('/terminated')
 def terminated():
+    name = session.get("student_name")
+    email = session.get("student_email")
+
+    # ✅ Prevent duplicate recording
+    if not session.get("terminated_recorded"):
+        record_termination(name, email)
+        session["terminated_recorded"] = True
+
     return render_template("terminated.html")
+
+@app.route('/record_termination', methods=['POST'])
+def record_termination_route():
+    if 'student_name' in session and 'student_email' in session:
+        name = session['student_name']
+        email = session['student_email']
+        if not session.get("terminated_recorded"):  # prevent duplicate
+            face_b64 = face_storage.get(email, " ")
+            record_termination(name, email, face_b64)
+
+            session["terminated_recorded"] = True
+        else:
+            print("⚠️ Termination already recorded for this session.")
+    else:
+        print("⚠️ Session missing student info.")
+    return '', 204  # No content
+
+@app.route('/stop_monitoring', methods=['POST'])
+def stop_monitoring():
+    name = session.get('student_name')
+    if name:
+        invigilation_ai.monitoring_flags[name] = False
+        audio_monitor.monitoring_flags[name] = False
+        print(f"🛑 Monitoring explicitly stopped for {name}")
+    return '', 204
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)

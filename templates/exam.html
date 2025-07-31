@@ -49,22 +49,73 @@
     </div>
   </div>
 
-  <!-- ✅ 1-line real-time JS alert + optional redirect -->
-  <script>
-  setInterval(() => {
-    fetch('/check_status')
-      .then(r => r.text())
-      .then(msg => {
-  console.log("📡 /check_status returned:", msg);  // Required debug
-  const trimmed = msg.trim();
-  if (trimmed === 'Terminated') {
-    alert("Your exam has been terminated due to violations.");
-    window.location.href = '/terminated';
-  }
-});
+<script>
+  let terminationSent = false;
 
-  }, 5000);
+  function sendTermination() {
+    if (!terminationSent) {
+      terminationSent = true;
+
+      // Send termination record
+      fetch('/record_termination', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action: 'terminate' }),
+        keepalive: true
+      });
+
+      // Stop monitoring
+      fetch('/stop_monitoring', {
+        method: 'POST',
+        keepalive: true
+      });
+
+      // Optional alert
+      alert("You have been terminated due to violation of rules.");
+    }
+  }
+
+  // Periodically check termination status from server
+  const checkTermination = setInterval(() => {
+    fetch('/check_status')
+      .then(res => res.text())
+      .then(status => {
+        console.log("✅ check_status:", status);  // Debug info
+        if (status.trim().toUpperCase() === 'TERMINATED') {
+          
+          sendTermination();
+          window.location.href = '/terminated';
+        }
+      })
+      .catch(err => console.error("❌ Error checking status:", err));
+  }, 3000); // Every 3 seconds
+
+  // Handle tab closing, reloading, etc.
+  window.addEventListener("beforeunload", function (e) {
+    sendTermination();
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  // Handle click on "Back to Home" (if such link exists)
+  window.addEventListener("DOMContentLoaded", () => {
+    const backLink = document.querySelector('a[href="/"]');
+    if (backLink) {
+      backLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        sendTermination();
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 300); // Delay to allow fetch to complete
+      });
+    }
+  });
 </script>
+
+
+
 
 </body>
 </html>

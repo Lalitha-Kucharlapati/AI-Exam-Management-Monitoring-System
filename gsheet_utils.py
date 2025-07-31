@@ -96,3 +96,51 @@ def delete_all_question_sheets():
     for f in files:
         if f['name'].startswith(question_prefix):
             client.del_spreadsheet(f['id'])
+
+def has_already_submitted(email):
+    try:
+        sheet = client.open("Exam_Results").sheet1
+        records = sheet.get_all_records()
+        for row in records:
+            if row.get("Email", "").strip().lower() == email.strip().lower():
+                return True
+        return False
+    except:
+        return False
+
+def record_termination(name, email, face_b64=" "):
+    try:
+        print(f"⚠️ record_termination called for: {name}, {email}")
+        
+        headers = ["Name", "Email", "face_b64"] + [f"Q{i+1}" for i in range(20)] + ["Score", "feedback"]
+        sheet = client.open("Exam_Results").sheet1
+        
+        existing = sheet.get_all_values()
+        if not existing:
+            print("📄 Sheet is empty. Appending headers.")
+            sheet.append_row(headers)
+
+        row = [name, email, face_b64] + ["Not Recorded"] * 20 + [0] + ["Terminated"]
+        print(f"📝 Writing row: {row}")
+        sheet.append_row(row)
+        print("✅ Termination recorded successfully.")
+        
+    except Exception as e:
+        print("❌ Error recording termination:", e)
+
+
+def clear_exam_results_sheet(num_questions=None):
+    try:
+        sheet = client.open("Exam_Results").sheet1
+        sheet.clear()
+
+        headers = ["Name", "Email", "face_b64"]
+        if num_questions:
+            headers += [f"Q{i+1}" for i in range(20)]
+        headers += ["Score", "Feedback"]
+
+        sheet.append_row(headers)
+
+        print("✅ Exam_Results sheet cleared and headers added.")
+    except Exception as e:
+        print("❌ Failed to clear exam results:", e)
